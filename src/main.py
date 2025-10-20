@@ -1,9 +1,10 @@
 import os
+import sys
 import shutil
 from blockmarkdown import markdown_to_html_node, extract_title
 from htmlnode import HTMLNode, LeafNode, ParentNode
 
-def copy_static_to_public(source_directory="./static", target_directory="./public", first_call=False):
+def copy_static_to_docs(source_directory, target_directory, first_call=False):
     if first_call == True:
         if os.path.exists(target_directory):
             shutil.rmtree(target_directory)
@@ -20,9 +21,9 @@ def copy_static_to_public(source_directory="./static", target_directory="./publi
             #log directory creation
             print(f"Creating {target_path}")
             os.makedirs(target_path, exist_ok=True)
-            copy_static_to_public(source_path, target_path)
+            copy_static_to_docs(source_path, target_path)
 
-def generate_pages_recursive(from_path, template_path, dest_path):
+def generate_pages_recursive(basepath, from_path, template_path, dest_path):
     for item in os.listdir(from_path):
         item_path = os.path.join(from_path, item)
         item_dest = os.path.join(dest_path, item)
@@ -42,6 +43,8 @@ def generate_pages_recursive(from_path, template_path, dest_path):
 
             template = template.replace("{{ Title }}", title)
             template = template.replace("{{ Content }}", html_string)
+            template = template.replace('href="/', f'href="{basepath}')
+            template = template.replace('src="/', f'src="{basepath}')
 
             os.makedirs(os.path.dirname(item_dest), exist_ok=True)
             with open(item_dest, "w") as f3:
@@ -49,19 +52,27 @@ def generate_pages_recursive(from_path, template_path, dest_path):
 
         elif os.path.isdir(item_path):
             os.makedirs(item_dest, exist_ok=True)
-            generate_pages_recursive(item_path, template_path, item_dest)
+            generate_pages_recursive(basepath, item_path, template_path, item_dest)
 
 def main():
+    basepath = "/"
+    if len(sys.argv) > 1:
+        basepath = sys.argv[1]
+    if not basepath.startswith("/"):
+        basepath = "/" + basepath
+    if not basepath.endswith("/"):
+        basepath = basepath + "/"
+
+    os.makedirs("./docs", exist_ok=True)
+
     if not os.path.exists("./static"):
         raise Exception("Error: No static directory found in this directory")
         
     if not os.path.exists("./content"):
         raise Exception("Error: No content directory found in this directory")
 
-    os.makedirs("./public", exist_ok=True)
-
-    copy_static_to_public(first_call=True)
-    generate_pages_recursive("./content", "./template.html", "./public")
+    copy_static_to_docs("./static", "./docs", first_call=True)
+    generate_pages_recursive(basepath, "./content", "./template.html", "./docs")
 
 if __name__ == "__main__":
     main()
